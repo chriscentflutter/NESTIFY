@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "343070737416",
+    "project_id": "nestify-a7fb5",
+    "storage_bucket": "nestify-a7fb5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:343070737416:android:25d91e888aa7123a18fdbd",
+        "android_client_info": {
+          "package_name": "com.nestify.nestify"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAFjgho6dKCLTGR8kw2u3KDfsENO5Nrbiw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

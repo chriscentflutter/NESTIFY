@@ -1,0 +1,74 @@
+class UserModel {
+  final String id;
+  final String name;
+  final String email;
+  final String? phone;
+  final String? photoUrl;
+  final String role; // 'user', 'agent', 'admin'
+  final DateTime createdAt;
+
+  UserModel({
+    required this.id,
+    required this.name,
+    required this.email,
+    this.phone,
+    this.photoUrl,
+    this.role = 'user',
+    DateTime? createdAt,
+  }) : createdAt = createdAt ?? DateTime.now();
+
+  // Get initials for avatar
+  String get initials {
+    final names = name.split(' ');
+    if (names.length >= 2) {
+      return '${names[0][0]}${names[1][0]}'.toUpperCase();
+    }
+    return name.isNotEmpty ? name[0].toUpperCase() : 'U';
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'name': name,
+      'email': email,
+      'phone': phone,
+      'photoUrl': photoUrl,
+      'role': role,
+      'createdAt': createdAt.toIso8601String(),
+    };
+  }
+
+  factory UserModel.fromJson(Map<String, dynamic> json) {
+    return UserModel(
+      id: json['id'] as String,
+      name: json['name'] as String,
+      email: json['email'] as String,
+      phone: json['phone'] as String?,
+      photoUrl: json['photoUrl'] as String?,
+      role: json['role'] as String? ?? 'user',
+      createdAt: json['createdAt'] != null
+          ? DateTime.parse(json['createdAt'] as String)
+          : null,
+    );
+  }
+
+  UserModel copyWith({
+    String? id,
+    String? name,
+    String? email,
+    String? phone,
+    String? photoUrl,
+    String? role,
+    DateTime? createdAt,
+  }) {
+    return UserModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      photoUrl: photoUrl ?? this.photoUrl,
+      role: role ?? this.role,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}

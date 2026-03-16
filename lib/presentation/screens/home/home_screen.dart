@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart' hide CarouselController;
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:nestify/core/widgets/wave_background.dart';
 import 'package:nestify/core/widgets/custom_text_field.dart';
 import 'package:nestify/core/widgets/custom_bottom_nav.dart';
@@ -9,6 +10,7 @@ import 'package:nestify/config/theme/app_colors.dart';
 import 'package:nestify/config/theme/app_text_styles.dart';
 import 'package:nestify/data/models/property_model.dart';
 import 'package:nestify/data/services/mock_data_service.dart';
+import 'package:nestify/data/providers/favorites_provider.dart';
 import 'package:nestify/presentation/screens/property/property_listing_screen.dart';
 import 'package:nestify/presentation/screens/favorites/favorites_screen.dart';
 import 'package:nestify/presentation/screens/profile/profile_screen.dart';
@@ -499,19 +501,55 @@ class _HomeScreenState extends State<HomeScreen> {
                   Positioned(
                     top: 12,
                     right: 12,
-                    child: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppColors.richBlack.withValues(alpha: 0.6),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(
-                        Icons.favorite_border,
-                        color: AppColors.white,
-                        size: 20,
-                      ),
+                    child: Consumer<FavoritesProvider>(
+                      builder: (context, favProv, _) {
+                        final isFav = favProv.isFavorite(property.id);
+                        return GestureDetector(
+                          onTap: () async {
+                            final adding = !isFav;
+                            await favProv.toggleFavorite(property);
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  adding
+                                      ? '❤️ Added to Favourites'
+                                      : 'Removed from Favourites',
+                                ),
+                                backgroundColor: adding
+                                    ? AppColors.primaryRed
+                                    : AppColors.charcoal,
+                                behavior: SnackBarBehavior.floating,
+                                action: adding
+                                    ? SnackBarAction(
+                                        label: 'View',
+                                        textColor: AppColors.white,
+                                        onPressed: () {
+                                          Navigator.pushNamed(
+                                              context, '/favorites');
+                                        },
+                                      )
+                                    : null,
+                              ),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: AppColors.richBlack.withValues(alpha: 0.6),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              isFav ? Icons.favorite : Icons.favorite_border,
+                              color: isFav ? AppColors.primaryRed : AppColors.white,
+                              size: 20,
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
+
                 ],
               ),
               

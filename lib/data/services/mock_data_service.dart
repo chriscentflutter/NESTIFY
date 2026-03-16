@@ -1,8 +1,7 @@
 import '../models/property_model.dart';
 
 class MockDataService {
-  static List<PropertyModel> getMockProperties() {
-    return [
+  static final List<PropertyModel> _properties = [
       // Featured Properties
       PropertyModel(
         id: '1',
@@ -371,6 +370,13 @@ class MockDataService {
         longitude: 7.4709,
       ),
     ];
+
+  static List<PropertyModel> getMockProperties() {
+    return _properties;
+  }
+
+  static void addProperty(PropertyModel property) {
+    _properties.insert(0, property);
   }
 
   static List<PropertyModel> getFeaturedProperties() {

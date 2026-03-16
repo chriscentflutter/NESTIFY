@@ -1,7 +1,12 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:nestify/core/widgets/wave_background.dart';
 import 'package:nestify/config/theme/app_colors.dart';
 import 'package:nestify/config/theme/app_text_styles.dart';
+import 'package:nestify/data/models/property_model.dart';
+import 'package:nestify/data/services/mock_data_service.dart';
 
 class AddPropertyScreen extends StatefulWidget {
   const AddPropertyScreen({Key? key}) : super(key: key);
@@ -23,6 +28,10 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   String _selectedPropertyType = 'apartment';
   String _selectedPriceType = 'sale';
   bool _isSubmitting = false;
+
+  // Image picker
+  final ImagePicker _picker = ImagePicker();
+  final List<XFile> _selectedImages = [];
 
   final List<String> _propertyTypes = [
     'apartment',
@@ -46,6 +55,40 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     _areaController.dispose();
     _descriptionController.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickImages() async {
+    try {
+      final List<XFile> images = await _picker.pickMultiImage(
+        imageQuality: 80,
+      );
+      if (images.isNotEmpty) {
+        setState(() {
+          // Avoid duplicates, limit to 10 images
+          for (final img in images) {
+            if (_selectedImages.length < 10 &&
+                !_selectedImages.any((x) => x.path == img.path)) {
+              _selectedImages.add(img);
+            }
+          }
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Could not open image picker: $e'),
+          backgroundColor: AppColors.error,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  void _removeImage(int index) {
+    setState(() {
+      _selectedImages.removeAt(index);
+    });
   }
 
   @override
@@ -194,7 +237,14 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
                         ),
                         const SizedBox(height: 24),
                         _buildSectionTitle('Images'),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 4),
+                        Text(
+                          '${_selectedImages.length}/10 images selected',
+                          style: AppTextStyles.bodySmall.copyWith(
+                            color: AppColors.textGray,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
                         _buildImageUploadSection(),
                         const SizedBox(height: 32),
                         _buildSubmitButton(),
@@ -233,9 +283,33 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
                   style: AppTextStyles.h3,
                 ),
                 Text(
-                  'Fill in property details',
+                  'Admin — Free listing',
                   style: AppTextStyles.bodyMedium.copyWith(
-                    color: AppColors.textGray,
+                    color: Colors.green,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          // Free badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.green.withValues(alpha: 0.5)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.verified, color: Colors.green, size: 14),
+                const SizedBox(width: 4),
+                Text(
+                  'FREE',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: Colors.green,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
               ],
@@ -362,57 +436,135 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
   }
 
   Widget _buildImageUploadSection() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.charcoal,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: AppColors.mediumGray.withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.cloud_upload,
-            size: 48,
-            color: AppColors.textGray,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Upload Property Images',
-            style: AppTextStyles.h5,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Click to browse or drag and drop',
-            style: AppTextStyles.bodySmall.copyWith(
-              color: AppColors.textGray,
+    return Column(
+      children: [
+        // Drop zone / pick button
+        GestureDetector(
+          onTap: _pickImages,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+            decoration: BoxDecoration(
+              color: AppColors.charcoal,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: _selectedImages.isEmpty
+                    ? AppColors.mediumGray.withValues(alpha: 0.4)
+                    : AppColors.primaryRed.withValues(alpha: 0.6),
+                width: _selectedImages.isEmpty ? 1 : 2,
+              ),
+            ),
+            child: Column(
+              children: [
+                Icon(
+                  Icons.add_photo_alternate_outlined,
+                  size: 48,
+                  color: _selectedImages.isEmpty
+                      ? AppColors.textGray
+                      : AppColors.primaryRed,
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  _selectedImages.isEmpty
+                      ? 'Tap to choose images'
+                      : 'Tap to add more images',
+                  style: AppTextStyles.h5.copyWith(
+                    color: _selectedImages.isEmpty
+                        ? AppColors.textGray
+                        : AppColors.primaryRed,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'JPEG, PNG · Max 10 images',
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.textGray,
+                  ),
+                ),
+              ],
             ),
           ),
+        ),
+
+        // Thumbnails
+        if (_selectedImages.isNotEmpty) ...[
           const SizedBox(height: 16),
-          OutlinedButton.icon(
-            onPressed: () {
-              // TODO: Implement image picker
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Image upload feature coming soon'),
-                  behavior: SnackBarBehavior.floating,
-                ),
-              );
-            },
-            icon: const Icon(Icons.add_photo_alternate),
-            label: const Text('Choose Images'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.primaryRed,
-              side: const BorderSide(color: AppColors.primaryRed),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
+          SizedBox(
+            height: 100,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _selectedImages.length,
+              itemBuilder: (context, index) {
+                final xFile = _selectedImages[index];
+                return Padding(
+                  padding: const EdgeInsets.only(right: 10),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: kIsWeb
+                            ? Image.network(
+                                xFile.path,
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              )
+                            : Image.file(
+                                File(xFile.path),
+                                width: 100,
+                                height: 100,
+                                fit: BoxFit.cover,
+                              ),
+                      ),
+                      // Remove button
+                      Positioned(
+                        top: 4,
+                        right: 4,
+                        child: GestureDetector(
+                          onTap: () => _removeImage(index),
+                          child: Container(
+                            width: 22,
+                            height: 22,
+                            decoration: const BoxDecoration(
+                              color: AppColors.primaryRed,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.close,
+                              color: AppColors.white,
+                              size: 14,
+                            ),
+                          ),
+                        ),
+                      ),
+                      // Index label
+                      Positioned(
+                        bottom: 4,
+                        left: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.6),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${index + 1}',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.white,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
-      ),
+      ],
     );
   }
 
@@ -445,7 +597,9 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
                   const Icon(Icons.check_circle, size: 20),
                   const SizedBox(width: 8),
                   Text(
-                    'Add Property',
+                    _selectedImages.isEmpty
+                        ? 'Add Property'
+                        : 'Add Property (${_selectedImages.length} image${_selectedImages.length == 1 ? '' : 's'})',
                     style: AppTextStyles.button,
                   ),
                 ],
@@ -463,8 +617,34 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
       _isSubmitting = true;
     });
 
-    // Simulate API call
+    // Simulate API call (replace with Firestore/Supabase upload)
     await Future.delayed(const Duration(seconds: 2));
+
+    final newProperty = PropertyModel(
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      location: _locationController.text.trim(),
+      city: 'Lagos', // Setting default for now
+      state: 'Lagos', // Setting default for now
+      price: double.tryParse(_priceController.text) ?? 0.0,
+      priceType: _selectedPriceType,
+      propertyType: _selectedPropertyType,
+      images: _selectedImages.map((e) => e.path).toList(), // Local paths just for mock
+      bedrooms: int.tryParse(_bedroomsController.text),
+      bathrooms: int.tryParse(_bathroomsController.text),
+      size: double.tryParse(_areaController.text),
+      agentId: 'admin_agent',
+      agentName: 'Admin User',
+      agentPhone: '',
+      agentEmail: 'admin@nestify.com',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      latitude: 6.5244,
+      longitude: 3.3792,
+    );
+
+    MockDataService.addProperty(newProperty);
 
     setState(() {
       _isSubmitting = false;
@@ -475,7 +655,17 @@ class _AddPropertyScreenState extends State<AddPropertyScreen> {
     // Show success message
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('${_titleController.text} added successfully!'),
+        content: Row(
+          children: [
+            const Icon(Icons.check_circle, color: Colors.white),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '${_titleController.text} added successfully!${_selectedImages.isNotEmpty ? ' (${_selectedImages.length} image${_selectedImages.length == 1 ? '' : 's'})' : ''}',
+              ),
+            ),
+          ],
+        ),
         backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
       ),

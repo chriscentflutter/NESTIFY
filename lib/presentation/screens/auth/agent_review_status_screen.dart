@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'package:nestify/config/theme/app_colors.dart';
 import 'package:nestify/config/theme/app_text_styles.dart';
 import 'package:nestify/core/widgets/wave_background.dart';
@@ -10,38 +9,22 @@ class AgentReviewStatusScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
+    // Mocking an agent application status view without Firebase
+    final data = {
+      'fullName': 'Mock Agent User',
+      'email': 'mock.agent@example.com',
+      'phone': '+2348000000000',
+      'address': '123 Mock Street, Lagos',
+      'nin': '12345678901',
+      'passportUrl': 'https://via.placeholder.com/300',
+      'status': 'pending', // or 'approved', 'rejected'
+    };
+    final status = data['status'] as String;
 
     return Scaffold(
       body: WaveBackground(
         child: SafeArea(
-          child: user == null
-              ? _buildNotLoggedIn(context)
-              : StreamBuilder<DocumentSnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('agent_applications')
-                      .doc(user.uid)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
-                        child: CircularProgressIndicator(
-                          color: AppColors.primaryRed,
-                        ),
-                      );
-                    }
-
-                    if (!snapshot.hasData || !snapshot.data!.exists) {
-                      return _buildNoApplication(context);
-                    }
-
-                    final data =
-                        snapshot.data!.data() as Map<String, dynamic>;
-                    final status = data['status'] as String? ?? 'pending';
-
-                    return _buildStatusView(context, data, status);
-                  },
-                ),
+          child: _buildStatusView(context, data, status),
         ),
       ),
     );
@@ -248,8 +231,7 @@ class AgentReviewStatusScreen extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             child: TextButton.icon(
-              onPressed: () async {
-                await FirebaseAuth.instance.signOut();
+              onPressed: () {
                 Navigator.pushNamedAndRemoveUntil(
                     context, '/login', (r) => false);
               },

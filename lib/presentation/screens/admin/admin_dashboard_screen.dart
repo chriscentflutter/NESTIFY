@@ -7,7 +7,7 @@ import 'package:nestify/presentation/screens/admin/admin_management_screen.dart'
 import 'package:nestify/presentation/screens/admin/add_property_screen.dart';
 import 'package:nestify/presentation/screens/admin/agent_applications_screen.dart';
 import 'package:nestify/presentation/screens/admin/all_users_screen.dart';
-import 'package:nestify/presentation/screens/property/listing_plans_screen.dart';
+
 import 'package:nestify/data/models/agent_application.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -167,7 +167,7 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => const ListingPlansScreen(),
+                        builder: (context) => const AddPropertyScreen(),
                       ),
                     );
                   },

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart' hide CarouselController;
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 
 import 'package:nestify/core/widgets/wave_background.dart';
 import 'package:nestify/core/widgets/custom_button.dart';
 import 'package:nestify/config/theme/app_colors.dart';
 import 'package:nestify/config/theme/app_text_styles.dart';
 import 'package:nestify/data/models/property_model.dart';
+import 'package:nestify/data/providers/favorites_provider.dart';
 import 'package:nestify/presentation/screens/property/schedule_visitation_screen.dart';
 
 import 'package:url_launcher/url_launcher.dart';
@@ -25,7 +27,6 @@ class PropertyDetailScreen extends StatefulWidget {
 
 class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
   int _currentImageIndex = 0;
-  bool _isFavorite = false;
   bool _appointmentBooked = false;
 
   @override
@@ -144,22 +145,53 @@ class _PropertyDetailScreenState extends State<PropertyDetailScreen> {
                   onPressed: () => Navigator.pop(context),
                 ),
               ),
-              Container(
-                decoration: BoxDecoration(
-                  color: AppColors.richBlack.withValues(alpha: 0.6),
-                  shape: BoxShape.circle,
-                ),
-                child: IconButton(
-                  icon: Icon(
-                    _isFavorite ? Icons.favorite : Icons.favorite_border,
-                    color: _isFavorite ? AppColors.primaryRed : AppColors.white,
-                  ),
-                  onPressed: () {
-                    setState(() {
-                      _isFavorite = !_isFavorite;
-                    });
-                  },
-                ),
+  Consumer<FavoritesProvider>(
+                builder: (context, favProv, _) {
+                  final isFav = favProv.isFavorite(widget.property.id);
+                  return Container(
+                    decoration: BoxDecoration(
+                      color: AppColors.richBlack.withValues(alpha: 0.6),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      icon: Icon(
+                        isFav ? Icons.favorite : Icons.favorite_border,
+                        color: isFav ? AppColors.primaryRed : AppColors.white,
+                      ),
+                      onPressed: () async {
+                        final adding = !isFav;
+                        await favProv.toggleFavorite(widget.property);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              adding
+                                  ? '❤️ Added to Favourites'
+                                  : 'Removed from Favourites',
+                            ),
+                            backgroundColor: adding
+                                ? AppColors.primaryRed
+                                : AppColors.charcoal,
+                            behavior: SnackBarBehavior.floating,
+                            action: adding
+                                ? SnackBarAction(
+                                    label: 'View',
+                                    textColor: AppColors.white,
+                                    onPressed: () {
+                                      Navigator.pushNamed(
+                                          context, '/favorites');
+                                    },
+                                  )
+                                : null,
+                          ),
+                        );
+                        if (adding && mounted) {
+                          Navigator.pushNamed(context, '/favorites');
+                        }
+                      },
+                    ),
+                  );
+                },
               ),
             ],
           ),

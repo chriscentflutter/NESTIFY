@@ -1,9 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:nestify/config/theme/app_colors.dart';
 import 'package:nestify/config/theme/app_text_styles.dart';
 import 'package:nestify/core/widgets/wave_background.dart';
@@ -33,10 +30,7 @@ class _AgentSignupScreenState extends State<AgentSignupScreen>
   late AnimationController _animController;
   late Animation<double> _fadeAnim;
 
-  final _auth = FirebaseAuth.instance;
-  final _firestore = FirebaseFirestore.instance;
-  final _storage = FirebaseStorage.instance;
-  final _picker = ImagePicker();
+
 
   @override
   void initState() {
@@ -60,86 +54,24 @@ class _AgentSignupScreenState extends State<AgentSignupScreen>
     super.dispose();
   }
 
-  // ─── Pick Passport Image ────────────────────────────────────────────────────
+  // ─── Pick Passport/ID Document ────────────────────────────────────────────────────
   Future<void> _pickPassport() async {
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: AppColors.charcoal,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppColors.mediumGray,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Text('Select Passport / ID Photo', style: AppTextStyles.h5),
-              const SizedBox(height: 16),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryRed.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Icon(Icons.camera_alt,
-                      color: AppColors.primaryRed),
-                ),
-                title: const Text('Take a Photo'),
-                onTap: () => Navigator.pop(context, ImageSource.camera),
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(8),
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryRed.withValues(alpha: 0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child:
-                      const Icon(Icons.photo_library, color: AppColors.primaryRed),
-                ),
-                title: const Text('Choose from Gallery'),
-                onTap: () => Navigator.pop(context, ImageSource.gallery),
-              ),
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (source == null) return;
-    final picked =
-        await _picker.pickImage(source: source, imageQuality: 85);
-    if (picked != null) {
-      setState(() {
-        _passportFile = File(picked.path);
-        _passportFileName = picked.name;
-      });
-    }
-  }
-
-  // ─── Upload to Firebase Storage ─────────────────────────────────────────────
-  Future<String?> _uploadPassport(String uid) async {
-    if (_passportFile == null) return null;
     try {
-      final ref = _storage
-          .ref()
-          .child('agent_passports/$uid/${_passportFileName ?? "passport.jpg"}');
-      final task = await ref.putFile(_passportFile!);
-      return await task.ref.getDownloadURL();
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['jpg', 'jpeg', 'png', 'pdf'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() {
+          _passportFile = File(result.files.single.path!);
+          _passportFileName = result.files.single.name;
+        });
+      }
     } catch (e) {
-      return null;
+      if (mounted) {
+        _showError('Error picking file: $e');
+      }
     }
   }
 
@@ -153,61 +85,14 @@ class _AgentSignupScreenState extends State<AgentSignupScreen>
 
     setState(() => _isLoading = true);
 
-    try {
-      // 1. Create Firebase Auth account
-      final credential = await _auth.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-      final uid = credential.user!.uid;
+    // Simulate API request delay
+    await Future.delayed(const Duration(seconds: 2));
 
-      // 2. Update display name
-      await credential.user!.updateDisplayName(_nameController.text.trim());
+    if (!mounted) return;
+    setState(() => _isLoading = false);
 
-      // 3. Upload passport to Firebase Storage
-      final passportUrl = await _uploadPassport(uid);
-
-      // 4. Save agent application to Firestore
-      await _firestore.collection('agent_applications').doc(uid).set({
-        'uid': uid,
-        'fullName': _nameController.text.trim(),
-        'email': _emailController.text.trim(),
-        'phone': _phoneController.text.trim(),
-        'address': _addressController.text.trim(),
-        'nin': _ninController.text.trim(),
-        'passportUrl': passportUrl,
-        'status': 'pending',
-        'submittedAt': FieldValue.serverTimestamp(),
-        'reviewedBy': null,
-        'reviewedAt': null,
-        'rejectionReason': null,
-      });
-
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      // 5. Show "Under Review" dialog
-      await _showUnderReviewDialog();
-    } on FirebaseAuthException catch (e) {
-      setState(() => _isLoading = false);
-      _showError(_authErrorMessage(e.code));
-    } catch (e) {
-      setState(() => _isLoading = false);
-      _showError('Something went wrong. Please try again.');
-    }
-  }
-
-  String _authErrorMessage(String code) {
-    switch (code) {
-      case 'email-already-in-use':
-        return 'This email is already registered. Please log in instead.';
-      case 'weak-password':
-        return 'Password is too weak. Use at least 6 characters.';
-      case 'invalid-email':
-        return 'Please enter a valid email address.';
-      default:
-        return 'Signup failed. Please try again.';
-    }
+    // Show "Under Review" dialog
+    await _showUnderReviewDialog();
   }
 
   void _showError(String msg) {
@@ -547,55 +432,65 @@ class _AgentSignupScreenState extends State<AgentSignupScreen>
                           ),
                         ),
                         child: _passportFile != null
-                            ? ClipRRect(
-                                borderRadius: BorderRadius.circular(17),
-                                child: Stack(
-                                  fit: StackFit.expand,
-                                  children: [
-                                    Image.file(_passportFile!,
-                                        fit: BoxFit.cover),
-                                    Positioned(
-                                      top: 8,
-                                      right: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: const BoxDecoration(
-                                          color: AppColors.primaryRed,
-                                          shape: BoxShape.circle,
+                            ? Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  // Show image if it's an image, else show file icon
+                                  _passportFileName!.toLowerCase().endsWith('.pdf')
+                                      ? const Center(
+                                          child: Icon(Icons.picture_as_pdf, color: AppColors.primaryRed, size: 48),
+                                        )
+                                      : ClipRRect(
+                                          borderRadius: BorderRadius.circular(17),
+                                          child: Image.file(_passportFile!, fit: BoxFit.cover),
                                         ),
-                                        child: const Icon(Icons.check,
-                                            color: AppColors.white,
-                                            size: 14),
+                                  Positioned(
+                                    top: 8,
+                                    right: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(6),
+                                      decoration: const BoxDecoration(
+                                        color: AppColors.primaryRed,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(Icons.check,
+                                          color: AppColors.white,
+                                          size: 14),
+                                    ),
+                                  ),
+                                  Positioned(
+                                    bottom: 0,
+                                    left: 0,
+                                    right: 0,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          vertical: 8),
+                                      decoration: BoxDecoration(
+                                        gradient: LinearGradient(
+                                          begin: Alignment.bottomCenter,
+                                          end: Alignment.topCenter,
+                                          colors: [
+                                            Colors.black.withValues(alpha: 0.7),
+                                            Colors.transparent,
+                                          ],
+                                        ),
+                                        borderRadius: const BorderRadius.only(
+                                          bottomLeft: Radius.circular(17),
+                                          bottomRight: Radius.circular(17),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        _passportFileName ?? 'Tap to change',
+                                        textAlign: TextAlign.center,
+                                        style: AppTextStyles.bodySmall
+                                            .copyWith(
+                                                color: AppColors.white),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    Positioned(
-                                      bottom: 0,
-                                      left: 0,
-                                      right: 0,
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 8),
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.bottomCenter,
-                                            end: Alignment.topCenter,
-                                            colors: [
-                                              Colors.black.withValues(alpha: 0.7),
-                                              Colors.transparent,
-                                            ],
-                                          ),
-                                        ),
-                                        child: Text(
-                                          'Tap to change',
-                                          textAlign: TextAlign.center,
-                                          style: AppTextStyles.bodySmall
-                                              .copyWith(
-                                                  color: AppColors.white),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               )
                             : Column(
                                 mainAxisAlignment: MainAxisAlignment.center,

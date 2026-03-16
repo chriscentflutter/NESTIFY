@@ -19,3 +19,19 @@ subprojects {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+subprojects {
+    afterEvaluate {
+        if (hasProperty("android")) {
+            try {
+                configure<com.android.build.gradle.BaseExtension> {
+                    if (namespace == null) {
+                        namespace = project.group.toString()
+                    }
+                }
+            } catch (e: Exception) {
+                // Ignore if not a standard android extension
+            }
+        }
+    }
+}
